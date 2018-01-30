@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+import sys
+import os
+import subprocess
+import re
+import urllib, json
+import string
+import sqlite3
+
+
+def get_BugIds():
+    url = "http://172.30.36.194:8080/bugapp/read_bugs"
+    response = urllib.urlopen(url)
+    list = json.loads(response.read())
+    listBugs = []
+    for datas in list:
+        listBugs.append(str(datas['ID']))
+    return listBugs
+
+def commitData(committed_msg, bugIds, cLength):
+    commitText = committed_msg.splitlines()
+    commitTextList = filter(None, commitText)
+    for text in commitTextList:
+        if not text or text is '':
+            print "mismatched=="+text
+        elif text.startswith('Bug Id'):
+            text = string.replace(text,"Bug Id:", " ")
+            bugsTextList = text.split('-')
+            strBugs = str(bugsTextList[0].strip())
+            if any(strBugs in s for s in bugIds):
+                print("Proceed commit")
+            else:
+                bug = strBugs
+                print("Bug ID: "+str(bug)+" Not found in the list! Provide the valid bug")
+                sys.exit(1)
+        else:
+            print("\n=========Bug ID not found.==========")
+            print ("Please enter the valid Bug. Abort Commit\n")
+            sys.exit(1)
+
+def main():
+    input  = sys.stdin.read()
+    oldrev, newrev, refname = input.split(" ")
+    separator = "----****----"
+    proc = subprocess.Popen(["git", "log", "--format=%H%n%ci%n%s%b%n" + separator, oldrev + ".." +  newrev], stdout=subprocess.PIPE)
+    message = proc.stdout.read()
+    commit_list = message.strip().split(separator)[:-1] #discard the last line
+    is_valid = True
+    commit_length = len(commit_list)
+    print '-----'
+    print len(commit_list)
+    print '-----'
+    bugs = get_BugIds()
+    for commit in commit_list:
+        line_list = commit.strip().split("\n")
+        hash = line_list[0]
+        date = line_list[1]
+        content = " ".join(line_list[2:])
+        if not re.findall("refs *#[0-9]+", content): #check for keyword
+            is_valid = False
+            print "----content---"
+            print content
+            commitData(content, bugs, commit_length)
+        else:
+            print "----else content---"
+            print content
+
+        # sys.exit(1)
+
+main()
+
+
+# line = sys.stdin.read()
+# print line
+# # separator = "----****----"
+# oldrev, newrev, refname = line.split(" ")
+# # proc = subprocess.Popen(["git", "log", "--format=%H%n%ci%n%s%b%n" + separator, oldrev + ".." +  newrev], stdout=subprocess.PIPE)
+# proc = subprocess.Popen(["git", "log", "--oneline" , oldrev + ".." +  newrev], stdout=subprocess.PIPE)
+# committed_msg = get_msg(proc)
+
+# print readData()
+
+# url = "http://www.json-generator.com/api/json/get/ckibldaQAy?indent=0"
+# response = urllib.urlopen(url)
+# data = json.loads(response.read())
+# print data
+# bugIds = []
+# for datas in data[u'Bugs']:
+#     bugIds.append(str(datas['ID']))
+# print "-------------------------------"
